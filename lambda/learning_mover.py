@@ -1,42 +1,37 @@
 import boto3
+import json
 import os
 
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
 def handler(event, context):
-    try:
-        table = dynamodb.Table(os.environ['TABLE_NAME'])
-        
-        # DynamoDB 스캔 (실제로는 더 효율적인 쿼리 방법을 사용해야 함)
-        response = table.scan()
-        
-        for item in response['Items']:
-            if item['count'] >= 10:
-                filename = item['filename']
-                
-                # S3에서 파일 이동
-                copy_source = {
-                    'Bucket': os.environ['DUMMY_BUCKET'],
-                    'Key': filename
-                }
-                s3.copy(copy_source, os.environ['LEARNING_BUCKET'], filename)
-                s3.delete_object(Bucket=os.environ['DUMMY_BUCKET'], Key=filename)
-                
-                # DynamoDB에서 항목 삭제
-                table.delete_item(
-                    Key={
-                        'filename': filename,
-                        'label': item['label']
-                    }
-                )
-        
-        return {
-            'statusCode': 200,
-            'body': 'Processing complete'
+    dummy_bucket = os.environ['DUMMY_BUCKET']
+    learning_bucket = os.environ['LEARNING_BUCKET']
+    table_name = os.environ['TABLE_NAME']
+    table = dynamodb.Table(table_name)
+    
+    body = json.loads(event['body'])
+    file_name = body['file_name']
+    
+    # 파일 복사
+    s3.copy_object(
+        CopySource={'Bucket': dummy_bucket, 'Key': file_name},
+        Bucket=learning_bucket,
+        Key=file_name
+    )
+    
+    # 원본 파일 삭제
+    s3.delete_object(Bucket=dummy_bucket, Key=file_name)
+    
+    # DB에서 관련 항목 삭제
+    table.delete_item(
+        Key={
+            'filename': file_name
         }
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': str(e)
-        }
+    )
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps('File moved and DB updated successfully')
+    }

@@ -11,28 +11,70 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-class CapcdkStack(Stack):
+class InsideoutCdkStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        s3_play = s3.Bucket(self, "playBucket",
-                              bucket_name="audio-play-chyuni",
-                              versioned=True,
-                              removal_policy=RemovalPolicy.DESTROY,
-                              auto_delete_objects=True)
+        s3_play = s3.Bucket(
+            self, "playBucket",
+            bucket_name="audio-play-chyuni",
+            versioned=True,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+            cors=[s3.CorsRule(
+                allowed_methods=[
+                    s3.HttpMethods.GET,
+                    s3.HttpMethods.POST,
+                    s3.HttpMethods.PUT,
+                    s3.HttpMethods.DELETE,
+                    s3.HttpMethods.HEAD,
+                ],
+                allowed_origins=["*"],  # 실제 운영 환경에서는 특정 도메인으로 제한하는 것이 좋습니다
+                allowed_headers=["*"],
+                max_age=3000
+            )]
+        )
 
-        s3_dummy = s3.Bucket(self, "dummyBucket",
-                              bucket_name="audio-dummy-chyuni",
-                              versioned=True,
-                              removal_policy=RemovalPolicy.DESTROY,
-                              auto_delete_objects=True)
+        s3_dummy = s3.Bucket(
+            self, "dummyBucket",
+            bucket_name="audio-dummy-chyuni",
+            versioned=True,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+            cors=[s3.CorsRule(
+                allowed_methods=[
+                    s3.HttpMethods.GET,
+                    s3.HttpMethods.POST,
+                    s3.HttpMethods.PUT,
+                    s3.HttpMethods.DELETE,
+                    s3.HttpMethods.HEAD,
+                ],
+                allowed_origins=["*"],
+                allowed_headers=["*"],
+                max_age=3000
+            )]
+        )
         
-        s3_learning = s3.Bucket(self, "learningBucket",
-                              bucket_name="audio-learning-chyuni",
-                              versioned=True,
-                              removal_policy=RemovalPolicy.DESTROY,
-                              auto_delete_objects=True)
+        s3_learning = s3.Bucket(
+            self, "learningBucket",
+            bucket_name="audio-learning-chyuni",
+            versioned=True,
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+            cors=[s3.CorsRule(
+                allowed_methods=[
+                    s3.HttpMethods.GET,
+                    s3.HttpMethods.POST,
+                    s3.HttpMethods.PUT,
+                    s3.HttpMethods.DELETE,
+                    s3.HttpMethods.HEAD,
+                ],
+                allowed_origins=["*"],
+                allowed_headers=["*"],
+                max_age=3000
+            )]
+        )
         
         audio_table = dynamodb.Table(
             self, "AudioTable_chyuni",
@@ -48,7 +90,8 @@ class CapcdkStack(Stack):
             handler="captcha.handler",
             code=lambda_.Code.from_asset("lambda"),
             environment={
-                "PLAY_BUCKET": s3_play.bucket_name
+                "PLAY_BUCKET": s3_play.bucket_name,
+                "TABLE_NAME": audio_table.table_name
             }
         )
 
@@ -63,6 +106,16 @@ class CapcdkStack(Stack):
             }
         )
 
+        db_update_lambda = lambda_.Function(
+            self, "DbUpdater",
+            runtime=lambda_.Runtime.PYTHON_3_9,
+            handler="db_updater.handler",
+            code=lambda_.Code.from_asset("lambda"),
+            environment={
+                "TABLE_NAME": audio_table.table_name
+            }
+        )
+        
         learning_mover_lambda = lambda_.Function(
             self, "LearningMover",
             runtime=lambda_.Runtime.PYTHON_3_9,
@@ -75,12 +128,19 @@ class CapcdkStack(Stack):
             }
         )
 
-        api = apigateway.RestApi(self, "AudioApi")
+        api = apigateway.RestApi(self, "AudioApi",
+                                default_cors_preflight_options=apigateway.CorsOptions(
+                                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                                allow_methods=["GET", "POST", "OPTIONS", "PUT"],
+                                allow_headers=["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key"],
+                                allow_credentials=True))
 
         captcha = api.root.add_resource("captcha")
         captcha.add_method("POST", apigateway.LambdaIntegration(captcha_lambda))
         dummy = api.root.add_resource("dummy")
         dummy.add_method("POST", apigateway.LambdaIntegration(dummy_processor_lambda))
+        db_update = api.root.add_resource("db_update")
+        db_update.add_method("POST", apigateway.LambdaIntegration(db_update_lambda))
         learning = api.root.add_resource("learning")
         learning.add_method("POST", apigateway.LambdaIntegration(learning_mover_lambda))
 
@@ -107,6 +167,8 @@ class CapcdkStack(Stack):
         s3_dummy.grant_read_write(dummy_processor_lambda)
         s3_dummy.grant_read_write(learning_mover_lambda)
         s3_learning.grant_write(learning_mover_lambda)
+        audio_table.grant_read_write_data(captcha_lambda)
+        audio_table.grant_read_write_data(db_update_lambda)
         audio_table.grant_read_write_data(dummy_processor_lambda)
         audio_table.grant_read_write_data(learning_mover_lambda)
 
