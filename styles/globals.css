@@ -1,0 +1,10 @@
+body {
+	margin: 0;
+	height: 100vh;
+  }
+  
+  :root {
+	--my-end-width: 40px;
+	--my-end-height: 40px;
+	--animate-opacity: 0;
+  }

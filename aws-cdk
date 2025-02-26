@@ -1,0 +1,50 @@
+changhyun Lee
+오후 4:53
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+npm install -g aws-cdk
+changhyun Lee
+오후 4:55
+cdk init app -language python
+source .venv/bin/activatee
+changhyun Lee
+오후 4:56
+python -m pip install requirment.txt
+python -m pip install -r requirment.txt
+changhyun Lee
+오후 4:59
+python -m pip install requirment.txt
+pip install aws-cdk.aws-amplify-alpha
+changhyun Lee
+오후 5:02
+TestStack
+1107c
+changhyun Lee
+오후 5:16
+https://github.com/CHyuni/test_next
+changhyun Lee
+오후 5:22
+cdk bootstrap aws://######/ap-northeast2
+changhyun Lee
+오후 5:23
+aws configure
+ap-northeast-2
+changhyun Lee
+오후 5:25
+https://github.com/CHyuni/insideoutCdk
+changhyun Lee
+오후 5:27
+cdk deploy
+changhyun Lee
+오후 6:04
+dummy db update learning
+changhyun Lee
+오후 6:05
+cdk destroy
+changhyun Lee
+오후 6:12
+CORS
+changhyun Lee
+오후 6:18
+gate way url/captcha
